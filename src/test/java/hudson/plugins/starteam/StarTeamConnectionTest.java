@@ -11,30 +11,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
-import org.jmock.Expectations;
-import org.jmock.Mockery;
-import org.jmock.integration.junit4.JMock;
-import org.jmock.lib.legacy.ClassImposteriser;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import com.starbase.starteam.DuplicateServerListEntryException;
-import com.starbase.starteam.ServerInfo;
+import com.starteam.ServerInfo;
 
 /**
  * @author John McNair <john@mcnair.org>
  */
-@RunWith(JMock.class)
 public class StarTeamConnectionTest {
-	private ServerInfo serverInfoMock;
-
-	private Mockery mockery = new Mockery() {{ setImposteriser(ClassImposteriser.INSTANCE); }};
-
-	@Before
-	public void setUp() {
-		serverInfoMock = mockery.mock(ServerInfo.class);
-	}
 
 	@Test
 	public void equals() {
@@ -127,39 +113,4 @@ public class StarTeamConnectionTest {
 		assertThat("Incorrect serialization", serializedConnection, is(originalConnection));
 	}
 
-	@Test
-	public void populateDescriptionSucceeds() throws Exception {
-		mockery.checking(new Expectations() {{
-			one(serverInfoMock).setDescription("StarTeam connection to host");
-		}});
-
-		StarTeamConnection connection = new StarTeamConnection("host", 1234, "user", "passwd", "project", "view", "folder", null);
-		connection.populateDescription(serverInfoMock);
-	}
-
-	@Test
-	public void populateDescriptionOneFailure() throws Exception {
-		mockery.checking(new Expectations() {{
-			one(serverInfoMock).setDescription("StarTeam connection to host");
-				will(throwException(new DuplicateServerListEntryException("host")));
-			one(serverInfoMock).setDescription("StarTeam connection to host (1)");
-		}});
-		
-		StarTeamConnection connection = new StarTeamConnection("host", 1234, "user", "passwd", "project", "view", "folder", null);
-		connection.populateDescription(serverInfoMock);
-	}
-
-	@Test
-	public void populateDescriptionTwoFailures() throws Exception {
-		mockery.checking(new Expectations() {{
-			one(serverInfoMock).setDescription("StarTeam connection to host");
-				will(throwException(new DuplicateServerListEntryException("host")));
-			one(serverInfoMock).setDescription("StarTeam connection to host (1)");
-				will(throwException(new DuplicateServerListEntryException("host")));
-			one(serverInfoMock).setDescription("StarTeam connection to host (2)");
-		}});
-		
-		StarTeamConnection connection = new StarTeamConnection("host", 1234, "user", "passwd", "project", "view", "folder", null);
-		connection.populateDescription(serverInfoMock);
-	}
 }

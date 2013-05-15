@@ -1,9 +1,9 @@
 package hudson.plugins.starteam;
 
-import com.starbase.starteam.Folder;
-import com.starbase.starteam.View;
-import com.starbase.starteam.File;
-import com.starbase.starteam.Item;
+import com.starteam.Folder;
+import com.starteam.View;
+import com.starteam.File;
+import com.starteam.Item;
 
 import java.util.Collection;
 import java.util.ArrayList;
@@ -115,9 +115,9 @@ public class StarTeamFunctions {
       listAllFiles(result, f);
     }
     // find items in this folder
-    for (Item i : folder.getItems(folder.getView().getProject().getServer()
-        .getTypeNames().FILE)) {
-      File f = (com.starbase.starteam.File) i;
+    for (Object o : folder.getItems(folder.getView().getProject().getServer()
+        .getTypes().FILE)) {
+      File f = (com.starteam.File) o;
       try {
         // This sometimes throws... deep inside starteam =(
         result.add(f);
@@ -150,9 +150,9 @@ public class StarTeamFunctions {
     return folderMap;
   }
 
-public static Map<java.io.File,com.starbase.starteam.File> convertToFileMap(final Collection<com.starbase.starteam.File> collection) {
-    Map<java.io.File,com.starbase.starteam.File> result = new TreeMap<java.io.File,com.starbase.starteam.File>();
-    for (com.starbase.starteam.File f:collection) {
+public static Map<java.io.File,com.starteam.File> convertToFileMap(final Collection<com.starteam.File> collection) {
+    Map<java.io.File,com.starteam.File> result = new TreeMap<java.io.File,com.starteam.File>();
+    for (com.starteam.File f:collection) {
       result.put(new java.io.File(f.getFullName()),f);
     }
     return result;

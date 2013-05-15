@@ -14,7 +14,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.starbase.starteam.Folder;
+import com.starteam.Folder;
 
 public class StarTeamViewSelectorIntegrationTest {
 
@@ -82,7 +82,7 @@ public class StarTeamViewSelectorIntegrationTest {
 		starTeamConnection = new StarTeamConnection( hostName, port, userName, password, projectName, viewName, folderName, selector) ;
 		starTeamConnection.initialize(-1) ;
 		Folder rootFolder = starTeamConnection.getRootFolder();
-		Collection<com.starbase.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, parentDirectory);
+		Collection<com.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, parentDirectory);
 		Assert.assertNotNull(starteamFiles) ;
 		Assert.assertTrue( starteamFiles.size() > 0 ) ;
 		starTeamConnection.close() ;
@@ -108,7 +108,7 @@ public class StarTeamViewSelectorIntegrationTest {
 		starTeamConnection = new StarTeamConnection( hostName, port, userName, password, projectName, viewName, folderName, selector) ;
 		starTeamConnection.initialize(-1) ;
 		Folder rootFolder = starTeamConnection.getRootFolder();
-		Collection<com.starbase.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, parentDirectory);
+		Collection<com.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, parentDirectory);
 		Assert.assertNotNull(starteamFiles) ;
 		Assert.assertTrue( starteamFiles.size() > 0 ) ;
 		starTeamConnection.close() ;
@@ -123,13 +123,13 @@ public class StarTeamViewSelectorIntegrationTest {
 		starTeamConnection = new StarTeamConnection( hostName, port, userName, password, projectName, viewName, folderName, selector) ;
 		starTeamConnection.initialize(-1) ;
 		Folder rootFolder = starTeamConnection.getRootFolder();
-		Collection<com.starbase.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, parentDirectory);
+		Collection<com.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, parentDirectory);
 		Assert.assertNotNull(starteamFiles) ;
 		Assert.assertTrue( starteamFiles.size() > 0 ) ;
 		starTeamConnection.close() ;
 	}
 
-	@Test (expected = com.starbase.starteam.ServerException.class)
+	@Test (expected = com.starteam.exceptions.ServerException.class)
 	public final void testTimeBeforeTime() throws ParseException, StarTeamSCMException {
 		StarTeamViewSelector selector = new StarTeamViewSelector("1970/1/1 00:00:00","TIME");
 		starTeamConnection = new StarTeamConnection( hostName, port, userName, password, projectName, viewName, folderName, selector) ;
@@ -147,7 +147,7 @@ public class StarTeamViewSelectorIntegrationTest {
 		starTeamConnection = new StarTeamConnection( hostName, port, userName, password, projectName, viewName, folderName, selector) ;
 		starTeamConnection.initialize(-1) ;
 		Folder rootFolder = starTeamConnection.getRootFolder();
-		Collection<com.starbase.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, parentDirectory);
+		Collection<com.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, parentDirectory);
 		Assert.assertNotNull(starteamFiles) ;
 		Assert.assertTrue( starteamFiles.size() > 0 ) ;
 		starTeamConnection.close() ;

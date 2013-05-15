@@ -8,7 +8,7 @@ import java.text.ParseException;
 
 import org.junit.Test;
 
-import com.starbase.starteam.View;
+import com.starteam.View;
 
 public class StarTeamViewSelectorTest {
 

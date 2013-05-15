@@ -20,7 +20,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.starbase.starteam.Folder;
+import com.starteam.Folder;
 
 /**
  * test all starteam functionalities against a real starteam repository
@@ -78,11 +78,11 @@ public class StarteamConnectionIntegrationTest {
 	@Test
 	public void testFindAllFiles() {
 		
-		Collection<com.starbase.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(starTeamConnection.getRootFolder(), parentDirectory);
+		Collection<com.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(starTeamConnection.getRootFolder(), parentDirectory);
 		Assert.assertNotNull(starteamFiles) ;
 		Assert.assertTrue( starteamFiles.size() > 0 ) ;
 		int i=0;
-		for (com.starbase.starteam.File file: starteamFiles)
+		for (com.starteam.File file: starteamFiles)
 		{
 			Assert.assertNotNull("file ["+i+"] in list of all files is null",file);
 			i++;

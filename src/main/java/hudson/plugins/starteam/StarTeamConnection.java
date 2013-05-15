@@ -20,23 +20,23 @@ import java.util.TreeSet;
 
 import org.apache.commons.lang.exception.ExceptionUtils;
 
-import com.starbase.starteam.ClientApplication;
-import com.starbase.starteam.File;
-import com.starbase.starteam.Folder;
-import com.starbase.starteam.Item;
-import com.starbase.starteam.LogonException;
-import com.starbase.starteam.Project;
-import com.starbase.starteam.PropertyNames;
-import com.starbase.starteam.Server;
-import com.starbase.starteam.ServerAdministration;
-import com.starbase.starteam.ServerConfiguration;
-import com.starbase.starteam.ServerInfo;
-import com.starbase.starteam.Status;
-import com.starbase.starteam.User;
-import com.starbase.starteam.UserAccount;
-import com.starbase.starteam.View;
-import com.starbase.starteam.vts.comm.NetMonitor;
-import com.starbase.util.OLEDate;
+import com.starteam.Application;
+import com.starteam.CheckoutManager;
+import com.starteam.File;
+import com.starteam.Folder;
+import com.starteam.Item;
+import com.starteam.Project;
+import com.starteam.Property;
+import com.starteam.PropertyCollection;
+import com.starteam.Server;
+import com.starteam.ServerAdministration;
+import com.starteam.ServerConfiguration;
+import com.starteam.ServerInfo;
+import com.starteam.User;
+import com.starteam.View;
+import com.starteam.NetMonitor;
+import com.starteam.exceptions.LogonException;
+import com.starteam.util.DateTime;
 
 /**
  * StarTeamActor is a class that implements connecting to a StarTeam repository,
@@ -150,7 +150,7 @@ public class StarTeamConnection implements Serializable {
 		try {
 			serverInfo.setDescription("StarTeam connection to " + this.hostName + ((counter == 0) ? "" : " (" + Integer.toString(counter) + ")"));
 			return true;
-		} catch (com.starbase.starteam.DuplicateServerListEntryException e) {
+		} catch (com.starteam.exceptions.DuplicateServerListEntryException e) {
 			return false;
 		}
 	}
@@ -191,7 +191,7 @@ public class StarTeamConnection implements Serializable {
 		   that take advantage of this feature.  This must be called before a connection
 		   to the server is established.
 		*/ 
-		ClientApplication.setName("StarTeam Plugin for Jenkins");
+		Application.setDefaultName("StarTeam Plugin for Jenkins");
 		
 		server = new Server(createServerInfo());
 		server.connect();
@@ -217,14 +217,25 @@ public class StarTeamConnection implements Serializable {
 		rootFolder = StarTeamFunctions.findFolderInView(view, folderName);
 
 		// Cache some folder data
-		final PropertyNames pnames = rootFolder.getPropertyNames();
-		final String[] filePropsToCache = new String[] { pnames.FILE_LOCAL_FILE_EXISTS, pnames.FILE_LOCAL_TIMESTAMP, pnames.FILE_NAME,
-				pnames.FILE_FILE_TIME_AT_CHECKIN, pnames.MODIFIED_TIME, pnames.MODIFIED_USER_ID, pnames.FILE_STATUS,
-				pnames.COMMENT,
-		};
-		final String[] folderPropsToCache = new String[] { pnames.FOLDER_WORKING_FOLDER };
-		rootFolder.populateNow(server.getTypeNames().FILE, filePropsToCache, -1);
-		rootFolder.populateNow(server.getTypeNames().FOLDER, folderPropsToCache, -1);
+		final File.Type.PropertyCollection fileProps = (com.starteam.File.Type.PropertyCollection) server.getTypes().FILE.getProperties();
+		final PropertyCollection filePropsToCache = Property.resolveAllDependencies(new PropertyCollection(new Property[] {
+					fileProps.NAME,
+					fileProps.IS_WORKING_FILE_AVAILABLE,
+					fileProps.WORKING_FILE_TIME,
+					fileProps.CONTENT_MODIFIFIED_TIME,
+					fileProps.MODIFIED_TIME,
+					fileProps.MODIFIED_BY,
+					fileProps.STATUS,
+					fileProps.COMMENT,
+				}));
+
+		final Folder.Type.PropertyCollection folderProps = (com.starteam.Folder.Type.PropertyCollection) server.getTypes().FOLDER.getProperties();
+		final PropertyCollection folderPropsToCache = Property.resolveAllDependencies(new PropertyCollection(new Property[] {
+					folderProps.WORKING_FOLDER,
+				}));
+
+		rootFolder.populate(server.getTypes().FILE, filePropsToCache, -1);
+		rootFolder.populate(server.getTypes().FOLDER, folderPropsToCache, -1);
 	}
 
 	/**
@@ -240,54 +251,49 @@ public class StarTeamConnection implements Serializable {
 	    if (quietCheckout) {
 	      logger.println("*** More than 2000 files, quiet mode enabled");
 	    }
+
+		CheckoutManager cm = view.createCheckoutManager();
+
 		for (File f : changeSet.getFilesToCheckout()) {
 			boolean dirty = true;
-			switch (f.getStatus()) {
-				case Status.UNKNOWN:
-					dirty = false;
-				case Status.NEW:
-				case Status.MERGE:
-				case Status.MODIFIED:
-					// clobber these
-					new java.io.File(f.getFullName()).delete();
-				    if (!quietCheckout) logger.println("[co] Deleted File: " + f.getFullName());
-					break;
-				case Status.MISSING:
-				case Status.OUTOFDATE:
-					dirty = false;
-					// just go on and check out
-					break;
-				default:
-					// By default do nothing, go to next iteration
-					continue;
+			File.Status status = f.getStatus();
+			if (status == File.Status.UNKNOWN) {
+				dirty = false;
+				// clobber these
+				new java.io.File(f.getFullName()).delete();
+				if (!quietCheckout) logger.println("[co] Deleted File: " + f.getFullName());
+			} else if (status == File.Status.NEW ||
+					   status == File.Status.MERGE ||
+					   status == File.Status.MODIFIED) {
+				// clobber these
+				new java.io.File(f.getFullName()).delete();
+				if (!quietCheckout) logger.println("[co] Deleted File: " + f.getFullName());
+			} else if (status == File.Status.MISSING ||
+					   status == File.Status.OUT_OF_DATE) {
+				dirty = false;
+				// just go on and check out
+			} else {
+				// By default do nothing, go to next iteration
+				continue;
 			}
 			if (!quietCheckout)
-				logger.println("[co] " + f.getFullName() + "... attempt");
-			try {
-				f.checkout(Item.LockType.UNCHANGED, // leave the lock as is, changing lock for item in the past is impossible
-						true, // use timestamp from local time
-						true, // convert EOL to native format
-						true); // update status
-			} catch (IOException e) {
-				logger
-						.print("[checkout] [exception] [Problem checking out file: "
-								+ f.getFullName()
-								+ "] \n"
-								+ ExceptionUtils.getFullStackTrace(e) + "\n");
-				throw e;
-			} catch (RuntimeException e) {
-				logger
-						.print("[checkout] [exception] [Problem checking out file: "
-								+ f.getFullName()
-								+ "] \n"
-								+ ExceptionUtils.getFullStackTrace(e) + "\n");
-				throw e;
-			}
+				logger.println("[co] " + f.getFullName());
+			cm.checkout(f);
 			if (dirty) {
 				changeSet.getChanges().add(FileToStarTeamChangeLogEntry(f,"dirty"));
 			}
-			if (!quietCheckout) logger.println("[co] " + f.getFullName() + "... ok");
 		}
+
+		try {
+			cm.commit();
+		} catch (RuntimeException e) {
+			logger
+				.print("[checkout] [exception] [Problem committing checkout]\n"
+					   + ExceptionUtils.getFullStackTrace(e) + "\n");
+			throw e;
+		}
+		if (!quietCheckout) logger.println("[co] commit ok");
+
 		logger.println("*** removing [" + changeSet.getFilesToRemove().size() + "] files");
 		boolean quietDelete = changeSet.getFilesToRemove().size() > 100;
 		if (quietDelete) {
@@ -328,13 +334,13 @@ public class StarTeamConnection implements Serializable {
 	 * @return the name of the user as provided by the StarTeam Server
 	 */
 	public String getUsername(int userId) {
-		User stUser = server.getUser(userId);
+		User stUser = server.findUser(userId);
 		String userName =stUser.getName();
 		ServerAdministration srvAdmin = server.getAdministration();
-		UserAccount[] userAccts = null;
+		User[] userAccts = null;
 		if (canReadUserAccts) {
 			try {
-				userAccts = srvAdmin.getUserAccounts();
+				userAccts = srvAdmin.getUsers();
 			} catch (Exception e) {
 				// System.out.println("WARNING: Looks like this user does not have the permission to access UserAccounts on the StarTeam Server!");
 				// System.out.println("WARNING: Please contact your administrator and ask to be given the permission \"Administer User Accounts\" on the server.");
@@ -344,7 +350,7 @@ public class StarTeamConnection implements Serializable {
 		}
 		if (userAccts != null) {
 			for (int i=0; i<userAccts.length; i++) {
-				UserAccount ua = userAccts[i];
+				User ua = userAccts[i];
 				if (ua.getName().equals(userName)) {
 					System.out.println("INFO: From \'" + userName + "\' found existing user LogonName = " +
 							ua.getLogOnName() + " with ID \'" + ua.getID() + "\' and email \'" + ua.getEmailAddress() +"\'");
@@ -363,7 +369,7 @@ public class StarTeamConnection implements Serializable {
 		return rootFolder;
 	}
 
-	public OLEDate getServerTime() {
+	public DateTime getServerTime() {
 		return server.getCurrentTime();
 	}
 
@@ -403,8 +409,8 @@ public class StarTeamConnection implements Serializable {
 	public void close() {
 		if (server.isConnected()) {
 			if (rootFolder != null)	{
-				rootFolder.discardItems(rootFolder.getTypeNames().FILE, -1);
-				rootFolder.discardItems(rootFolder.getTypeNames().FOLDER, -1);
+				rootFolder.discardItems(server.getTypes().FILE, -1);
+				rootFolder.discardItems(server.getTypes().FOLDER, -1);
 			}
 			view.discard();
 			project.discard();
@@ -455,8 +461,8 @@ public class StarTeamConnection implements Serializable {
 	public StarTeamChangeSet computeChangeSet(Folder rootFolder, java.io.File workspace, final Collection<StarTeamFilePoint> historicFilePoints, PrintStream logger) throws StarTeamSCMException, IOException {
 	    // --- compute changes as per starteam
 
-	    final Collection<com.starbase.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, workspace);
-	    final Map<java.io.File, com.starbase.starteam.File> starteamFileMap = StarTeamFunctions.convertToFileMap(starteamFiles);
+	    final Collection<com.starteam.File> starteamFiles = StarTeamFunctions.listAllFiles(rootFolder, workspace);
+	    final Map<java.io.File, com.starteam.File> starteamFileMap = StarTeamFunctions.convertToFileMap(starteamFiles);
 	    final Collection<java.io.File> starteamFileSet = starteamFileMap.keySet();
 	    final Collection<StarTeamFilePoint> starteamFilePoint = StarTeamFilePointFunctions.convertFilePointCollection(starteamFiles);
 
@@ -500,16 +506,17 @@ public class StarTeamConnection implements Serializable {
 	public StarTeamChangeLogEntry FileToStarTeamChangeLogEntry (File f, String change)
 	{
 		int revisionNumber = f.getContentVersion();
-		int userId = f.getModifiedBy();
-		String username = getUsername(userId);
+		User user = f.getModifiedBy();
+		int userId = user.getID();
+		String username = user.getName();
 		String msg = f.getComment();
-		Date date = new Date(f.getModifiedTime().getLongValue());
+		Date date = new Date(f.getModifiedTime().toJavaMsec());
 		String fileName = f.getName();		
 
 		return new StarTeamChangeLogEntry(fileName,revisionNumber,date,username,msg, change);
 	}
 
-	public StarTeamChangeSet computeDifference(final Collection<StarTeamFilePoint> currentFilePoint, final Collection<StarTeamFilePoint> historicFilePoint, StarTeamChangeSet changeSet, Map<java.io.File, com.starbase.starteam.File> starteamFileMap) {
+	public StarTeamChangeSet computeDifference(final Collection<StarTeamFilePoint> currentFilePoint, final Collection<StarTeamFilePoint> historicFilePoint, StarTeamChangeSet changeSet, Map<java.io.File, com.starteam.File> starteamFileMap) {
 		  final Map<java.io.File, StarTeamFilePoint> starteamFilePointMap = StarTeamFilePointFunctions.convertToFilePointMap(currentFilePoint);
 		  Map<java.io.File, StarTeamFilePoint> historicFilePointMap = StarTeamFilePointFunctions.convertToFilePointMap(historicFilePoint);
 	
@@ -537,7 +544,7 @@ public class StarTeamConnection implements Serializable {
 				  //unchanged files
 				  continue;
 			  }
-			  com.starbase.starteam.File stf = starteamFileMap.get(f);
+			  com.starteam.File stf = starteamFileMap.get(f);
 			  if (starteam.getRevisionNumber() > historic.getRevisionNumber()) {
 				  higher.add(f);
 				  changeSet.addChange(FileToStarTeamChangeLogEntry(stf,"change"));
@@ -554,7 +561,7 @@ public class StarTeamConnection implements Serializable {
 			  changeSet.addChange(change);
 		  }
 		  for (java.io.File f : starteamOnly) {
-			  com.starbase.starteam.File stf = starteamFileMap.get(f);
+			  com.starteam.File stf = starteamFileMap.get(f);
 			  changeSet.addChange(FileToStarTeamChangeLogEntry(stf,"added"));
 		  }
 	

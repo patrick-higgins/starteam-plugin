@@ -9,11 +9,11 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import com.starbase.starteam.Label;
-import com.starbase.starteam.PromotionState;
-import com.starbase.starteam.View;
-import com.starbase.starteam.ViewConfiguration;
-import com.starbase.util.OLEDate;
+import com.starteam.Label;
+import com.starteam.PromotionState;
+import com.starteam.View;
+import com.starteam.ViewConfiguration;
+import com.starteam.util.DateTime;
 
 /**
  * 
@@ -88,28 +88,28 @@ public class StarTeamViewSelector implements Serializable {
 				configuration = ViewConfiguration.createTip();
 				break;
 			case LABEL:
-				int labelId;
+				Label label;
 				// check if label is a pattern
 				if (configInfo.indexOf("%") != -1) {
-					labelId = createLabelInView(baseView, configInfo, buildNumber);
+					label = createLabelInView(baseView, configInfo, buildNumber);
 				} else {
-					labelId = findLabelInView(baseView, configInfo);
+					label = findLabelInView(baseView, configInfo);
 				}
-				configuration = ViewConfiguration.createFromLabel(labelId);
+				configuration = ViewConfiguration.createFrom(label);
 				break;
 			case PROMOTION:		          
 				// note: If the promotion state is assigned to <<current>> then the resulting ID will be NULL and
 				// we will revert to a view based on the current tip.
-				Integer promotionStateId = findPromotionStateInView(baseView, configInfo);
-				if (promotionStateId != null) {
-					configuration = ViewConfiguration.createFromPromotionState(promotionStateId);
+				PromotionState ps = findPromotionStateInView(baseView, configInfo);
+				if (ps != null) {
+					configuration = ViewConfiguration.createFrom(ps);
 				} else {					
 					configuration = ViewConfiguration.createTip();
 				}
 				break;
 			case TIME:
 	            Date effectiveDate = df.parse(configInfo);
-				configuration = ViewConfiguration.createFromTime(new OLEDate(effectiveDate));
+				configuration = ViewConfiguration.createFrom(new DateTime(effectiveDate));
 				break;
 			default:
 				throw new StarTeamSCMException("Could not construct view - no configuration provided");
@@ -120,32 +120,31 @@ public class StarTeamViewSelector implements Serializable {
 		return new View(baseView, configuration);
 	}
 
-	private static int findLabelInView(final View view, final String labelname) throws StarTeamSCMException {
+	private static Label findLabelInView(final View view, final String labelname) throws StarTeamSCMException {
 		for (Label label : view.getLabels()) {
 			if (labelname.equals(label.getName())) {
-				return label.getID();
+				return label;
 			}
 		}
 		throw new StarTeamSCMException("Couldn't find label [" + labelname + "] in view " + view.getName());
 	}
 
-	private static int createLabelInView(final View view, final String labelformat, final int buildNumber) throws StarTeamSCMException {
+	private static Label createLabelInView(final View view, final String labelformat, final int buildNumber) throws StarTeamSCMException {
 		final String labelName = String.format(labelformat, buildNumber);
 		final String labelDesc = String.format("Jenkins build %d", buildNumber);
 		final boolean buildLabel = true;
 		final boolean frozen = true;
-		Label label = view.createViewLabel(labelName, labelDesc, new OLEDate(), buildLabel, frozen);
-		return label.getID();
+		return view.createViewLabel(labelName, labelDesc, new DateTime(), buildLabel, frozen);
 	}
 
-	private static Integer findPromotionStateInView(final View view, final String promotionState) throws StarTeamSCMException {
+	private static PromotionState findPromotionStateInView(final View view, final String promotionState) throws StarTeamSCMException {
 		for (PromotionState ps : view.getPromotionModel().getPromotionStates()) {
 			if (promotionState.equals(ps.getName())) {
-				if (ps.getLabelID() == -1) {
+				if (ps.getLabel().getID() == -1) {
 					// PROMOTION STATE is set to <<current>>
 					return null;
 				}
-				return ps.getObjectID();
+				return ps;
 			}
 		}
 		throw new StarTeamSCMException("Couldn't find promotion state " + promotionState + " in view " + view.getName());
