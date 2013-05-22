@@ -125,6 +125,13 @@ public class StarTeamViewSelector implements Serializable {
 		return new View(baseView, configuration);
 	}
 
+	public String getLabelName(int buildNumber) {
+		if (configInfo != null && !configInfo.isEmpty() && configType == ConfigType.LABEL) {
+			return expandLabelPattern(configInfo, buildNumber);
+		}
+		return null;
+	}
+
 	public static String expandLabelPattern(final String labelformat, final int buildNumber) {
 		Matcher m = labelPattern.matcher(labelformat);
 		StringBuffer sb = new StringBuffer();

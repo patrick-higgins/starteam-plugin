@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import net.sf.json.JSONObject;
@@ -106,6 +107,20 @@ public class StarTeamSCM extends SCM {
 			}
 		}
 		this.config = result;
+	}
+
+	/**
+	 * Adds BUILD_LABEL variable.
+	 * @see hudson.scm.SCM#buildEnvVars(AbstractBuild<?,?> build, Map<String,String> env)
+	 */
+	@Override
+	public void buildEnvVars(AbstractBuild build,
+							 Map<String,String> env) {
+		super.buildEnvVars(build, env);
+		String labelName = config.getLabelName(build.getNumber());
+		if (labelName != null) {
+			env.put("BUILD_LABEL", labelName);
+		}
 	}
 
 	/*
